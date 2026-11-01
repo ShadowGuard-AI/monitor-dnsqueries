@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>monitor-dnsqueries: the night watch ledger</title>
+<style>
+  /* I keep this page like the watch ledger by the door: ruled
+     lines, entries in a steady hand, and red pencil where the
+     night got interesting. */
+  :root { --slate:#1c222b; --slate2:#232b36; --paper:#e9e4d2;
+          --dim:#a49e8a; --red:#e06c5f; --rule:#39424f; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--slate); color:var(--paper);
+         font-family: Georgia, serif; }
+  header { text-align:center; padding:2rem 1rem 0.4rem; }
+  header img { max-width:min(880px, 94vw); width:100%; height:auto; }
+  h1 { margin:0.7rem 0 0.2rem; font-size:1.9rem; }
+  .sub { color:var(--dim); max-width:42rem; margin:0.3rem auto 1rem;
+         line-height:1.55; }
+  main { max-width:920px; margin:0 auto; padding:0 1rem 3rem; }
+  h2 { margin-top:2.4rem; font-size:1.3rem; border-bottom:1px solid var(--rule);
+       padding-bottom:0.3rem; }
+  p, li { line-height:1.6; }
+  a { color:var(--red); }
+  table { width:100%; border-collapse:collapse; margin-top:0.8rem;
+          font-family:'Courier New', monospace; font-size:0.92rem; }
+  th, td { text-align:left; padding:0.45rem 0.6rem;
+           border-bottom:1px solid var(--rule); }
+  th { color:var(--dim); font-weight:normal; letter-spacing:0.06em; }
+  td.n { text-align:right; width:5.5rem; }
+  .note { background:var(--slate2); border-left:4px solid var(--red);
+          padding:0.8rem 1rem; margin:0.7rem 0; line-height:1.55; }
+  .note b { color:var(--red); font-family:'Courier New', monospace;
+            font-weight:normal; }
+  .formats { display:grid; gap:0.8rem; grid-template-columns:1fr; }
+  @media (min-width:700px) { .formats { grid-template-columns:repeat(3, 1fr); } }
+  .fmt { border:1px solid var(--rule); border-radius:6px; padding:0.9rem 1rem; }
+  .fmt h3 { margin:0 0 0.4rem; font-size:1rem; }
+  .fmt p { margin:0; color:var(--dim); font-size:0.92rem; }
+  pre { background:#12161d; border:1px solid var(--rule); border-radius:6px;
+        padding:0.85rem 1rem; overflow-x:auto;
+        font-family:'Courier New', monospace; font-size:0.86rem; }
+  img.schematic { width:100%; height:auto; border:1px solid var(--rule);
+                  border-radius:6px; background:#f4efe2; }
+  footer { text-align:center; color:var(--dim); font-size:0.9rem;
+           padding:0 1rem 2.2rem; }
+</style>
+</head>
+<body>
+<header>
+  <img src="assets/banner.png" alt="monitor-dnsqueries banner">
+  <h1>monitor-dnsqueries</h1>
+  <p class="sub">I read the DNS query logs your network already keeps
+  and write up the night: who asked for what, how often, and which
+  patterns earned a red mark in the margin. I read local files only.
+  I do not capture traffic, and nothing leaves your machine.</p>
+</header>
+<main>
+  <h2>The logs I can read</h2>
+  <div class="formats">
+    <div class="fmt"><h3>dnsmasq and Pi-hole</h3>
+      <p>The <code>query[A] name from client</code> lines a home or
+      office resolver writes all day.</p></div>
+    <div class="fmt"><h3>BIND 9</h3>
+      <p>The <code>client ... query: name IN A</code> lines from a
+      BIND query log.</p></div>
+    <div class="fmt"><h3>Plain CSV</h3>
+      <p><code>time, client, name, type</code>, or the same without
+      the time. If a line fits none of these, I count it as not
+      understood instead of guessing.</p></div>
+  </div>
+
+  <h2>One night's ledger, from the test fixture</h2>
+  <p>The entries below are the tool's real output on its synthetic
+  test log: 85 queries of ordinary traffic with a burst and a
+  tunneling pattern planted in it. The watch caught both.</p>
+  <table>
+    <tr><th>Domain</th><th style="text-align:right">Queries</th><th>Asked by</th></tr>
+    <tr><td>update.example.net</td><td class="n">55</td><td>192.168.1.50</td></tr>
+    <tr><td>example.org</td><td class="n">2</td><td>two clients</td></tr>
+    <tr><td>api.service.test</td><td class="n">2</td><td>192.168.1.13</td></tr>
+    <tr><td>22 distinct TXT names under example-cdn.com</td><td class="n">22</td><td>192.168.1.60</td></tr>
+  </table>
+  <p>By type across the whole log: A=61, TXT=22, MX=1, AAAA=1.
+  Two lines were not understood and were counted as such.</p>
+
+  <h2>Watch notes: what earns a red mark</h2>
+  <div class="note"><b>[burst]</b> 192.168.1.50 asked for
+    update.example.net 55 times. A stuck resolver, a retry loop, or
+    a beacon all look like this.</div>
+  <div class="note"><b>[subdomain crowd]</b> 22 distinct names under
+    example-cdn.com. Data can ride out of a network one subdomain at
+    a time.</div>
+  <div class="note"><b>[long label]</b> Labels of 36 characters on
+    those names. Long labels are where tunneling hides.</div>
+  <div class="note"><b>[TXT-heavy]</b> 22 TXT queries. TXT answers
+    are roomy enough to carry payloads.</div>
+  <p>Every threshold behind these notes is a parameter. Your
+  network's normal is not mine to decide.</p>
+
+  <h2>Take a shift</h2>
+  <pre>python3 main.py /var/log/dnsmasq.log</pre>
+  <p>Python 3, standard library only. A log with no parseable
+  queries fails with exit code 2 rather than reporting a quiet
+  night it never actually saw. Full documentation:
+  <a href="https://github.com/ShadowGuard-AI/monitor-dnsqueries">the repository</a>.</p>
+
+  <h2>The apparatus</h2>
+  <img class="schematic" src="assets/schematic.png"
+       alt="Hand-drawn invention schematic of monitor-dnsqueries">
+</main>
+<footer>
+  monitor-dnsqueries is MIT licensed. Copyright (c) Gavin K (@Epsilon0xCell).
+</footer>
+</body>
+</html>
