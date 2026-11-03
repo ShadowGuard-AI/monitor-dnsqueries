@@ -35,8 +35,7 @@ never guessed at.
 - **TXT-heavy traffic**: TXT answers are roomy enough to carry
   payloads, so a pile of TXT queries earns a look.
 
-Every threshold is a parameter, because your network's normal is
-not mine to decide.
+Every flag threshold except the random-looking rule is a parameter, because your network's normal is not mine to decide. The random-looking rule is fixed in code: a second-level label at least 12 characters long with Shannon entropy at least 4.2.
 
 ## Install
 
@@ -55,23 +54,35 @@ were downloads; it is gone.)
 python3 main.py /var/log/dnsmasq.log
 ```
 
-Abridged from this tool's own test fixture, a synthetic log with a
-burst and a tunneling pattern planted in ordinary traffic:
+Verified run on a synthetic log with a burst and a tunneling pattern planted in ordinary traffic:
 
 ```
-Read 85 DNS queries (29 distinct names, 2 lines not understood)
+Read 80 DNS queries (25 distinct names, 2 lines not understood)
 
 Top domains:
       55  update.example.net
        2  example.org
+       1  sub0.example-cdn.com
+       1  sub1.example-cdn.com
+       1  sub2.example-cdn.com
+       1  sub3.example-cdn.com
+       1  sub4.example-cdn.com
+       1  sub5.example-cdn.com
+       1  sub6.example-cdn.com
+       1  sub7.example-cdn.com
 
-By type: A=61, TXT=22, MX=1, AAAA=1
+Top clients:
+      55  192.168.1.50
+      23  192.168.1.60
+       2  192.168.1.70
 
-Patterns I flag (13):
+By type: A=55, TXT=23, MX=1, AAAA=1
+
+Patterns I flag (4):
   [burst] 192.168.1.50 asked for update.example.net 55 times (threshold 50); a stuck resolver, a retry loop, or a beacon all look like this
-  [subdomain crowd] 22 distinct names under example-cdn.com (threshold 20); data can ride out one subdomain at a time
+  [subdomain crowd] 23 distinct names under example-cdn.com (threshold 20); data can ride out one subdomain at a time
   [long label] 0123456789abcdefghijklmnopqrstuvwxyz.tunneldata.example-cdn.com carries a label of 36 characters (threshold 30); long labels are where tunneling hides
-  [TXT-heavy] 22 TXT queries (threshold 10); TXT answers are roomy enough to carry payloads
+  [TXT-heavy] 23 TXT queries (threshold 10); TXT answers are roomy enough to carry payloads
 ```
 
 ## Parameters
